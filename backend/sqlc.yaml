@@ -1,0 +1,28 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "internal/db/queries"
+    schema: "internal/db/migrations"
+    gen:
+      go:
+        package: "sqlc"
+        out: "internal/db/sqlc"
+        sql_package: "pgx/v5"
+        emit_pointers_for_null_types: false
+        emit_json_tags: true
+        json_tags_case_style: "snake"
+        emit_prepared_queries: false
+        emit_interface: true
+        emit_empty_slices: true
+        rename:
+          jfind: "JFIND"
+          coe: "CoE"
+          coe_number: "CoENumber"
+          coe_issued_at: "CoEIssuedAt"
+        overrides:
+          - column: "compliance_tasks.metadata"
+            go_type: "encoding/json.RawMessage"
+          - column: "life_events.payload"
+            go_type: "encoding/json.RawMessage"
+          - column: "documents.parsed_data"
+            go_type: "encoding/json.RawMessage"
