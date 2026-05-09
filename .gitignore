@@ -1,0 +1,43 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go test artifacts
+*.test
+*.out
+coverage.html
+coverage.txt
+
+# Go workspace
+go.work
+go.work.sum
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Env / secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Docker volumes (handled by docker-compose, not bind-mounted, but be safe)
+postgres_data/
+minio_data/
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.turbo/
+
+# sqlc generated — keep generated code in repo for reviewability; uncomment to exclude
+# backend/internal/db/sqlc/

@@ -1,0 +1,197 @@
+visa_code: jfind
+rules:
+  - id: jfind_pre_arrival_document_check
+    applies_to_visas: [jfind]
+    trigger: visa_application_started
+    notes: |
+      J-FIND requires no Certificate of Eligibility — application is direct at
+      consulate. Required documents vary slightly by consulate. This rule
+      covers the common-case checklist for US applicants applying through the
+      Consulate-General of Japan in New York.
+    generates_tasks:
+      - rule_id: jfind_passport_validity_check
+        title_en: "Confirm passport validity covers your J-FIND year + 6 months"
+        title_ja: "パスポートの有効期限がJ-FIND期間+6ヶ月をカバーすることを確認"
+        description_en: |
+          Japan requires passports to remain valid for the duration of stay.
+          For J-FIND (1 year, extendable to 2), confirm at least 18 months of
+          validity remain on the date you intend to enter Japan. Renew at a
+          US passport agency before applying for the visa if needed.
+        description_ja: "在留期間+6ヶ月の有効期限が必要です。"
+        category: pre_arrival
+        severity: mandatory
+        deadline:
+          no_deadline: true
+        legal_source_url: "https://www.mofa.go.jp/j_info/visit/visa/index.html"
+
+      - rule_id: jfind_university_transcript
+        title_en: "Obtain official transcript and diploma from your qualifying university"
+        title_ja: "出身大学の成績証明書と卒業証明書を取得"
+        description_en: |
+          J-FIND requires proof of graduation within the past 5 years from a
+          university ranked in the top 100 of QS, THE, or ARWU world rankings.
+          Official transcript and diploma in English are typically required.
+          If your university issues only Japanese-language documents, you will
+          need certified English translations.
+        description_ja: "卒業証明書と成績証明書（英語）が必要です。"
+        category: pre_arrival
+        severity: mandatory
+        deadline:
+          no_deadline: true
+        legal_source_url: "https://www.moj.go.jp/isa/applications/procedures/nyuukokukanri07_00328.html"
+
+      - rule_id: jfind_proof_of_funds
+        title_en: "Prepare proof of funds (200,000 JPY equivalent minimum)"
+        title_ja: "資金証明書類を準備（最低20万円相当）"
+        description_en: |
+          J-FIND requires proof you can support yourself during job hunting.
+          Bank statements showing at least JPY 200,000 (roughly USD 1,400)
+          are typical; more is safer given Tokyo cost-of-living. Statements
+          should cover the most recent 3 months and be from an account in
+          your name.
+        description_ja: "求職活動中の生活費証明（3ヶ月分の銀行明細）。"
+        category: pre_arrival
+        severity: mandatory
+        deadline:
+          no_deadline: true
+
+      - rule_id: jfind_consulate_application
+        title_en: "Submit J-FIND application at your nearest Japanese consulate"
+        title_ja: "最寄りの日本国総領事館でJ-FINDビザを申請"
+        description_en: |
+          For NYC residents: Consulate-General of Japan in New York (299 Park
+          Avenue). Application processing typically takes 5-10 business days.
+          Required documents vary slightly per consulate; check the NYC
+          consulate page directly for the current list before submitting.
+        description_ja: "在ニューヨーク日本国総領事館で申請。処理5-10営業日。"
+        category: pre_arrival
+        severity: mandatory
+        deadline:
+          no_deadline: true
+        legal_source_url: "https://www.ny.us.emb-japan.go.jp/itpr_en/visa.html"
+        location_hint: "Consulate-General of Japan in New York, 299 Park Ave, NYC"
+        depends_on:
+          - jfind_passport_validity_check
+          - jfind_university_transcript
+          - jfind_proof_of_funds
+
+  - id: jfind_post_landing
+    applies_to_visas: [jfind]
+    trigger: landed_japan
+    notes: |
+      Standard post-landing obligations for any residence-card holder, plus
+      J-FIND-specific notes about the 1-year ticking clock.
+    generates_tasks:
+      - rule_id: jfind_post_landing_address_registration
+        title_en: "Register your address at your ward office (転入届)"
+        title_ja: "市区町村役場で転入届を提出"
+        description_en: |
+          Within 14 days of moving into your residence, you must register
+          your address at the ward office (区役所) of your municipality.
+          Bring: residence card, passport, and your lease agreement if
+          available. You will receive a juminhyo (住民票) confirming
+          registration. This unlocks NHI, pension, My Number, and bank
+          account opening.
+        description_ja: "住居届出は14日以内。住民票発行。"
+        category: municipal
+        severity: mandatory
+        deadline:
+          relative_days: 14
+        legal_source_url: "https://www.moj.go.jp/isa/publications/materials/nyukan_nyukan50.html"
+        legal_source_text: "Basic Resident Registration Act, Article 22"
+
+      - rule_id: jfind_post_landing_health_insurance
+        title_en: "Enroll in National Health Insurance (国民健康保険)"
+        title_ja: "国民健康保険に加入"
+        description_en: |
+          Mandatory for all residents staying 3+ months. Done at the same
+          ward office visit as address registration. Bring your residence
+          card and the juminhyo you just received. Premiums are calculated
+          based on prior-year income; first-year residents typically pay
+          minimum premiums.
+        description_ja: "3ヶ月以上滞在者は加入必須。住民票登録と同時に。"
+        category: health_insurance
+        severity: mandatory
+        deadline:
+          relative_days: 14
+        depends_on: [jfind_post_landing_address_registration]
+        legal_source_url: "https://www.mhlw.go.jp/english/policy/social-security/social-welfare/index.html"
+
+      - rule_id: jfind_post_landing_pension
+        title_en: "Enroll in National Pension (国民年金)"
+        title_ja: "国民年金に加入"
+        description_en: |
+          Mandatory for all residents aged 20-59. Done at the same ward
+          office visit. If you later return home, you can claim a lump-sum
+          withdrawal payment (脱退一時金) for up to 5 years of contributions.
+        description_ja: "20-59歳の住民は加入必須。脱退時に脱退一時金請求可。"
+        category: pension
+        severity: mandatory
+        deadline:
+          relative_days: 14
+        depends_on: [jfind_post_landing_address_registration]
+
+      - rule_id: jfind_track_expiry
+        title_en: "Track J-FIND expiry — your 1-year clock starts now"
+        title_ja: "J-FIND有効期限を追跡 — 1年カウントダウン"
+        description_en: |
+          J-FIND grants 1 year of stay (extendable once for a total of 2
+          years). Find a sponsoring employer and switch to Engineer/Specialist
+          in Humanities/International Services visa before this expires, or
+          apply for the 1-year extension before your status expires.
+        description_ja: "1年（最大2年）で就職活動完了が必要。"
+        category: immigration
+        severity: informational
+        deadline:
+          relative_days: 365
+
+  - id: jfind_employer_change_notification
+    applies_to_visas: [jfind]
+    trigger: employer_changed
+    notes: |
+      For J-FIND specifically: any contracting organization (employer,
+      including part-time) is a notifiable entity. Standard 14-day window
+      under Immigration Act Article 19-16.
+    generates_tasks:
+      - rule_id: jfind_immigration_notification_employer_change
+        title_en: "Notify Immigration Bureau of contracting organization change (within 14 days)"
+        title_ja: "契約機関変更を入国管理局に届出（14日以内）"
+        description_en: |
+          When you start, end, or change a contracting organization (any
+          employer, including part-time work in Japan), you must notify the
+          Immigration Services Agency within 14 days. Submit form online
+          via the e-Notification system or in person at your local
+          immigration bureau. Failure to notify can affect future visa
+          renewals and PR applications.
+        description_ja: "契約機関の開始・終了・変更は14日以内に届出義務。"
+        category: immigration
+        severity: mandatory
+        deadline:
+          relative_days: 14
+        legal_source_url: "https://www.moj.go.jp/isa/applications/procedures/nyuukokukanri10_00014.html"
+        legal_source_text: "Immigration Control and Refugee Recognition Act, Article 19-16"
+
+  - id: jfind_tax_residency_185
+    applies_to_visas: ['*']
+    trigger: tax_residency_triggered
+    notes: |
+      Triggered automatically by the system when the user has been in Japan
+      for 183+ days. Applies to all visa types — tax residency rules are
+      visa-agnostic. The system schedules this event when landed_japan is
+      logged.
+    generates_tasks:
+      - rule_id: tax_residency_filing_obligation
+        title_en: "You are now a Japanese tax resident — worldwide income is taxable"
+        title_ja: "日本の居住者となりました — 全世界所得課税対象"
+        description_en: |
+          After 183 days in Japan, you become a Japanese tax resident. Your
+          worldwide income is now subject to Japanese tax. The US-Japan tax
+          treaty prevents most double taxation but you must file in both
+          countries. First Japanese tax filing deadline is March 15 of the
+          year following the year in which you became a resident.
+        description_ja: "全世界所得が課税対象。3月15日までに確定申告。"
+        category: tax
+        severity: mandatory
+        deadline:
+          no_deadline: true
+        legal_source_url: "https://www.nta.go.jp/english/taxes/individual/12012.htm"

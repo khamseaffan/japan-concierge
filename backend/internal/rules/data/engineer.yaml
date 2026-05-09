@@ -1,0 +1,171 @@
+visa_code: engineer
+rules:
+  - id: engineer_pre_arrival_coe_flow
+    applies_to_visas: [engineer]
+    trigger: visa_application_started
+    notes: |
+      Engineer/Specialist in Humanities/International Services (技術・人文知識・
+      国際業務 / "Gijinkoku") requires the sponsoring employer in Japan to file
+      for a Certificate of Eligibility (CoE) on the applicant's behalf with
+      Immigration Services Agency. The CoE is then mailed to the applicant
+      who applies for the visa stamp at their local consulate.
+    generates_tasks:
+      - rule_id: engineer_passport_validity_check
+        title_en: "Confirm passport validity covers your full period of stay + 6 months"
+        title_ja: "パスポート有効期限が在留期間+6ヶ月をカバーすることを確認"
+        description_en: |
+          Engineer visa periods are 1, 3, or 5 years depending on case
+          assessment. Confirm passport validity covers your expected period
+          of stay plus 6 months on the date you intend to enter Japan.
+        description_ja: "在留期間+6ヶ月の有効期限が必要です。"
+        category: pre_arrival
+        severity: mandatory
+        deadline:
+          no_deadline: true
+        legal_source_url: "https://www.mofa.go.jp/j_info/visit/visa/index.html"
+
+      - rule_id: engineer_employer_coe_filing
+        title_en: "Confirm sponsoring employer has filed CoE application with Immigration"
+        title_ja: "スポンサー企業による在留資格認定証明書申請を確認"
+        description_en: |
+          Your sponsoring employer in Japan files Form for Certificate of
+          Eligibility with the regional Immigration Services Agency.
+          Processing typically takes 1-3 months. Confirm with your HR or
+          immigration lawyer that the application has been submitted and
+          ask for the application receipt number.
+        description_ja: "雇用主が地方出入国在留管理局に申請。処理1-3ヶ月。"
+        category: pre_arrival
+        severity: mandatory
+        deadline:
+          no_deadline: true
+        legal_source_url: "https://www.moj.go.jp/isa/applications/procedures/zairyu_nintei.html"
+
+      - rule_id: engineer_consulate_visa_application
+        title_en: "Apply for visa stamp at Japanese consulate after CoE arrives"
+        title_ja: "CoE受領後、領事館でビザスタンプ申請"
+        description_en: |
+          After receiving the physical CoE from your employer (mailed to
+          your home), bring it with passport, visa application form, and
+          photo to your local Japanese consulate. CoE is valid for 3 months
+          from issue date — you must enter Japan within that window. Visa
+          stamp processing at consulate is typically 5-10 business days.
+        description_ja: "CoE発行から3ヶ月以内に入国必要。領事館での処理5-10営業日。"
+        category: pre_arrival
+        severity: mandatory
+        deadline:
+          no_deadline: true
+        depends_on:
+          - engineer_passport_validity_check
+          - engineer_employer_coe_filing
+
+  - id: engineer_post_landing
+    applies_to_visas: [engineer]
+    trigger: landed_japan
+    notes: |
+      Engineer visa post-landing obligations. Health insurance differs from
+      J-FIND because most Engineer visa holders are enrolled in employer-
+      sponsored health insurance (社会保険) rather than National Health
+      Insurance, but the user still needs ward office address registration.
+    generates_tasks:
+      - rule_id: engineer_post_landing_address_registration
+        title_en: "Register your address at your ward office (転入届)"
+        title_ja: "市区町村役場で転入届を提出"
+        description_en: |
+          Within 14 days of moving into your residence, you must register
+          your address at the ward office (区役所) of your municipality.
+          Bring: residence card, passport, lease agreement if available.
+          You will receive a juminhyo (住民票) confirming registration.
+        description_ja: "住居届出は14日以内。住民票発行。"
+        category: municipal
+        severity: mandatory
+        deadline:
+          relative_days: 14
+        legal_source_url: "https://www.moj.go.jp/isa/publications/materials/nyukan_nyukan50.html"
+        legal_source_text: "Basic Resident Registration Act, Article 22"
+
+      - rule_id: engineer_employer_health_insurance_confirmation
+        title_en: "Confirm enrollment in employer health insurance (社会保険)"
+        title_ja: "社会保険加入を確認"
+        description_en: |
+          Most Engineer visa holders are enrolled in their employer's
+          health insurance (Shakai Hoken / 社会保険) rather than National
+          Health Insurance. HR typically handles enrollment. Confirm with
+          HR that you're enrolled and obtain your insurance card. If your
+          employer does NOT enroll you (rare but possible at small firms),
+          you must enroll in NHI at the ward office within 14 days.
+        description_ja: "雇用主の健康保険加入確認。未加入の場合は国保に14日以内に加入。"
+        category: health_insurance
+        severity: mandatory
+        deadline:
+          relative_days: 14
+        depends_on: [engineer_post_landing_address_registration]
+
+      - rule_id: engineer_employer_pension_confirmation
+        title_en: "Confirm enrollment in employer pension (厚生年金)"
+        title_ja: "厚生年金加入を確認"
+        description_en: |
+          Engineer visa holders working full-time are enrolled in Employees'
+          Pension Insurance (Kosei Nenkin / 厚生年金) via their employer.
+          Confirm with HR. If you are not enrolled (rare), you must enroll
+          in National Pension at the ward office.
+        description_ja: "厚生年金加入を雇用主と確認。未加入の場合は国民年金加入。"
+        category: pension
+        severity: mandatory
+        deadline:
+          relative_days: 14
+        depends_on: [engineer_post_landing_address_registration]
+
+  - id: engineer_employer_change_notification
+    applies_to_visas: [engineer]
+    trigger: employer_changed
+    notes: |
+      Critical compliance trap. Engineer visa holders must notify Immigration
+      within 14 days of any contracting organization change. Failing this
+      is one of the top reasons Engineer visa renewals are denied or
+      downgraded to 1-year periods.
+    generates_tasks:
+      - rule_id: engineer_immigration_notification_employer_change
+        title_en: "Notify Immigration Bureau of employer change (within 14 days)"
+        title_ja: "雇用主変更を入国管理局に届出（14日以内）"
+        description_en: |
+          When you change employers (start, end, or transfer between
+          contracting organizations), you must notify the Immigration
+          Services Agency within 14 days. Submit via the e-Notification
+          system online or in person at your local immigration bureau.
+          This is REGARDLESS of whether you also change visa categories.
+          Missed notifications are a top cause of renewal denials.
+        description_ja: "契約機関の開始・終了・変更は14日以内に届出義務。更新拒否の主因。"
+        category: immigration
+        severity: mandatory
+        deadline:
+          relative_days: 14
+        legal_source_url: "https://www.moj.go.jp/isa/applications/procedures/nyuukokukanri10_00014.html"
+        legal_source_text: "Immigration Control and Refugee Recognition Act, Article 19-16"
+
+  - id: engineer_renewal_window
+    applies_to_visas: [engineer]
+    trigger: visa_renewal_window_opens
+    notes: |
+      Triggered automatically by the system 3 months before visa expiry.
+      Engineer visas are typically renewable for 1, 3, or 5 years depending
+      on history of compliance and tax-paying record.
+    generates_tasks:
+      - rule_id: engineer_renewal_application
+        title_en: "Begin Engineer visa renewal application (3-month window open)"
+        title_ja: "技人国ビザ更新申請開始（更新期間開始）"
+        description_en: |
+          Engineer visa renewals (在留期間更新許可申請) can be filed up to
+          3 months before your current period of stay expires. Required
+          documents: application form, passport, residence card,
+          certificate of employment, certificate of tax payment from your
+          ward office (納税証明書), employment contract, and company
+          documents. Filing on time is critical — overstay even by 1 day
+          is a serious violation.
+        description_ja: |
+          在留期間満了3ヶ月前から申請可能。必要書類：申請書、パスポート、
+          在留カード、在職証明書、納税証明書、雇用契約書、会社書類。
+        category: immigration
+        severity: mandatory
+        deadline:
+          relative_days: 90
+        legal_source_url: "https://www.moj.go.jp/isa/applications/procedures/nyuukokukanri07_00003.html"
