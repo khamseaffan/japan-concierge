@@ -13,8 +13,11 @@ import (
 type Querier interface {
 	// Inserts a generated task. Uses ON CONFLICT DO NOTHING because the schema
 	// enforces idempotency via UNIQUE (user_id, rule_id, triggered_by_event_id).
-	// If the task already exists, this returns no rows. The caller decides whether
-	// that's a no-op or an error.
+	//
+	// CONTRACT: when a conflict occurs, this returns ZERO rows. With sqlc's :one,
+	// that surfaces as pgx.ErrNoRows in the generated Go. Callers MUST treat
+	// ErrNoRows as the idempotent no-op path, not an error. See ADR-0003 for the
+	// reasoning behind schema-level idempotency.
 	CreateComplianceTask(ctx context.Context, arg CreateComplianceTaskParams) (ComplianceTask, error)
 	CreateLifeEvent(ctx context.Context, arg CreateLifeEventParams) (LifeEvent, error)
 	CreateVisa(ctx context.Context, arg CreateVisaParams) (Visa, error)
@@ -26,13 +29,20 @@ type Querier interface {
 	GetUser(ctx context.Context, id int64) (User, error)
 	GetUserByEmail(ctx context.Context, email pgtype.Text) (User, error)
 	GetVisaByID(ctx context.Context, arg GetVisaByIDParams) (Visa, error)
+	GetVisaType(ctx context.Context, code string) (VisaType, error)
 	ListAllTasksForUser(ctx context.Context, userID int64) ([]ComplianceTask, error)
 	ListLifeEventsForUser(ctx context.Context, arg ListLifeEventsForUserParams) ([]LifeEvent, error)
 	ListPendingTasksForUser(ctx context.Context, userID int64) ([]ComplianceTask, error)
+	// Filtered task listing for GET /api/v1/tasks. Each filter is optional via
+	// sqlc.narg: pass NULL (Go: pgtype.Text/Int8 with Valid=false) to skip it.
+	// Sort order is consistent with ListPendingTasksForUser: deadline ascending,
+	// NULLs at the end, then created_at as tiebreaker.
+	ListTasksFiltered(ctx context.Context, arg ListTasksFilteredParams) ([]ComplianceTask, error)
 	// Returns tasks created by a specific life event. Used by the service layer
 	// to return the freshly-generated tasks from RecordLifeEvent, so the HTTP
 	// response can echo what was created without a follow-up query.
 	ListTasksTriggeredByEvent(ctx context.Context, arg ListTasksTriggeredByEventParams) ([]ComplianceTask, error)
+	ListVisaTypes(ctx context.Context) ([]VisaType, error)
 	ListVisasForUser(ctx context.Context, userID int64) ([]Visa, error)
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) (ComplianceTask, error)
 }

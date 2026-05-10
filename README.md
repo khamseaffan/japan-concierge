@@ -11,7 +11,8 @@ Early development. Phase 1 (compliance tracker) in progress.
 - [x] Postgres schema (multi-tenant ready)
 - [x] Rule engine (pure Go, YAML-driven, visa-agnostic)
 - [x] Rules for J-FIND and Engineer/Specialist in Humanities/International Services
-- [ ] HTTP API (Chi)
+- [x] HTTP API (Chi) — `POST /visas`, `GET /visas/active`, `POST /life-events`, `GET /tasks`, `GET /healthz`
+- [x] Integration tests (testcontainers)
 - [ ] Frontend pre-arrival mode (Next.js PWA)
 - [ ] Frontend post-landing tracker
 - [ ] Document upload + storage
@@ -28,16 +29,24 @@ backend/internal/rules     Pure rule engine. No DB, no HTTP, no clock.
                            Rules live as YAML data, not code branches.
                            Adding a visa = adding a YAML file + tests.
 
-backend/internal/domain    Pure domain types (Visa, Task, Event, Document).
+backend/internal/db        Postgres schema (migrations), hand-written
+                           queries (queries/*.sql), sqlc-generated Go.
 
-backend/internal/db        Postgres schema, migrations, sqlc-generated queries.
+backend/internal/service   Orchestrates engine + persistence inside
+                           transactions. Each service exposes a narrow
+                           Querier interface (interface segregation).
 
-backend/internal/http      Chi handlers + middleware. The dirty I/O boundary.
+backend/internal/http      Chi handlers + middleware. The dirty I/O
+                           boundary. Per-request slog with request_id
+                           threaded through context.
 
-backend/internal/service   Orchestrates the engine and persistence.
+backend/internal/testutil  Testcontainers + goose runner for integration
+                           tests (build-tagged `integration`).
 ```
 
 The rules engine has zero dependencies on the database or HTTP. It is a pure function: `(rule sets, input event) → generated tasks`. This is the SOLID core — open for extension (new visas), closed for modification (one engine).
+
+See [`docs/decisions/`](docs/decisions/) for the architecture decisions and the reasoning behind each choice.
 
 ## Quick start
 
@@ -50,9 +59,53 @@ make db-up
 # Apply schema
 make migrate
 
-# Run the rule engine tests
+# Fast tests (rule engine only)
 make test-rules
+
+# Integration tests (boots throwaway Postgres containers, ~10s)
+make test-integration
+
+# Build and run the server
+make build
+make run
 ```
+
+## Try it: full session in curl
+
+After `make db-up`, `make migrate`, and `make run`, walk through the pre-arrival flow:
+
+```bash
+# 1. Catalog of supported visa types (UI populates a picker from this)
+curl -s localhost:8080/api/v1/visa-types
+
+# 2. No visa yet -> 404 (frontend uses this to redirect to onboarding)
+curl -i localhost:8080/api/v1/visas/active
+
+# 3. Create a J-FIND planning visa
+curl -s -X POST localhost:8080/api/v1/visas \
+  -H 'Content-Type: application/json' \
+  -d '{"visa_type_code":"jfind","notes":"NYC, gathering documents"}'
+
+# 4. Log "I started my application today" -> 4 J-FIND pre-arrival tasks come back
+curl -s -X POST localhost:8080/api/v1/life-events \
+  -H 'Content-Type: application/json' \
+  -d '{"event_type":"visa_application_started","occurred_at":"2026-05-10"}'
+
+# 5. Log "I landed" -> 4 post-landing tasks with 14-day and 365-day deadlines
+curl -s -X POST localhost:8080/api/v1/life-events \
+  -H 'Content-Type: application/json' \
+  -d '{"event_type":"landed_japan","occurred_at":"2026-08-01"}'
+
+# 6. List every task, filter by category or status
+curl -s localhost:8080/api/v1/tasks
+curl -s 'localhost:8080/api/v1/tasks?category=municipal'
+curl -s 'localhost:8080/api/v1/tasks?status=pending&visa_id=1'
+
+# 7. Health check pings Postgres (use this for cloud readiness probes)
+curl -s localhost:8080/healthz
+```
+
+Every server log line includes `request_id`, `method`, `path`, and the `source` file/function/line of the log call, making it trivial to follow a single request across handlers and services.
 
 ## Visa coverage
 

@@ -84,6 +84,9 @@ func validateRuleSets(sets []*VisaRuleSet) error {
 			if rule.Trigger == "" {
 				return fmt.Errorf("%s/%s: missing trigger", rs.VisaCode, rule.ID)
 			}
+			if !IsKnownEventType(string(rule.Trigger)) {
+				return fmt.Errorf("%s/%s: trigger %q is not a registered EventType", rs.VisaCode, rule.ID, rule.Trigger)
+			}
 			if len(rule.AppliesToVisas) == 0 {
 				return fmt.Errorf("%s/%s: applies_to_visas must not be empty", rs.VisaCode, rule.ID)
 			}

@@ -17,13 +17,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/khamseaffan/japan-concierge/backend/internal/config"
+	"github.com/khamseaffan/japan-concierge/backend/internal/db/sqlc"
 	httpapi "github.com/khamseaffan/japan-concierge/backend/internal/http"
 	"github.com/khamseaffan/japan-concierge/backend/internal/rules"
 	"github.com/khamseaffan/japan-concierge/backend/internal/service"
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level:     slog.LevelInfo,
+		AddSource: true,
+	}))
+	slog.SetDefault(logger)
 
 	if err := run(logger); err != nil {
 		logger.Error("fatal", "err", err)
@@ -58,9 +63,14 @@ func run(logger *slog.Logger) error {
 	engine := rules.NewEngine(ruleSets)
 	logger.Info("rules engine loaded", "visa_codes", engine.VisaCodes())
 
-	tracker := service.NewTrackerService(pool, engine)
+	q := sqlc.New(pool)
+	svcs := httpapi.Services{
+		Tracker: service.NewTrackerService(pool, engine),
+		Visas:   service.NewVisaService(q),
+		Tasks:   service.NewTaskService(q),
+	}
 
-	router := httpapi.NewRouter(cfg, logger, tracker)
+	router := httpapi.NewRouter(cfg, logger, svcs, pool)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,

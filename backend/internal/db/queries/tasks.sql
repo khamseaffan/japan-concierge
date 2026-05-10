@@ -1,8 +1,11 @@
 -- name: CreateComplianceTask :one
 -- Inserts a generated task. Uses ON CONFLICT DO NOTHING because the schema
 -- enforces idempotency via UNIQUE (user_id, rule_id, triggered_by_event_id).
--- If the task already exists, this returns no rows. The caller decides whether
--- that's a no-op or an error.
+--
+-- CONTRACT: when a conflict occurs, this returns ZERO rows. With sqlc's :one,
+-- that surfaces as pgx.ErrNoRows in the generated Go. Callers MUST treat
+-- ErrNoRows as the idempotent no-op path, not an error. See ADR-0003 for the
+-- reasoning behind schema-level idempotency.
 INSERT INTO compliance_tasks (
     user_id, visa_id, rule_id, triggered_by_event_id,
     title_en, title_ja, description_en, description_ja,
@@ -57,6 +60,27 @@ SELECT id, user_id, visa_id, rule_id, triggered_by_event_id,
     metadata, created_at, updated_at
 FROM compliance_tasks
 WHERE user_id = $1
+ORDER BY
+    CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END,
+    deadline_at ASC,
+    created_at ASC;
+
+-- name: ListTasksFiltered :many
+-- Filtered task listing for GET /api/v1/tasks. Each filter is optional via
+-- sqlc.narg: pass NULL (Go: pgtype.Text/Int8 with Valid=false) to skip it.
+-- Sort order is consistent with ListPendingTasksForUser: deadline ascending,
+-- NULLs at the end, then created_at as tiebreaker.
+SELECT id, user_id, visa_id, rule_id, triggered_by_event_id,
+    title_en, title_ja, description_en, description_ja,
+    category, severity, status,
+    deadline_at, completed_at,
+    legal_source_url, legal_source_text, location_hint,
+    metadata, created_at, updated_at
+FROM compliance_tasks
+WHERE user_id = $1
+  AND (sqlc.narg('status')::text   IS NULL OR status   = sqlc.narg('status'))
+  AND (sqlc.narg('visa_id')::bigint IS NULL OR visa_id = sqlc.narg('visa_id'))
+  AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category'))
 ORDER BY
     CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END,
     deadline_at ASC,

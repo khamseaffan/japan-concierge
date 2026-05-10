@@ -26,6 +26,39 @@ const (
 	EventTaxResidencyTriggered  EventType = "tax_residency_triggered"
 )
 
+// allEventTypes is the single source of truth for known event type strings.
+// Used by both the loader (validates rule.trigger values) and the HTTP handler
+// (validates incoming JSON event_type). Adding a new EventType const requires
+// adding it here too — there is no way to register one without the other.
+var allEventTypes = map[EventType]struct{}{
+	EventVisaApplicationStarted: {},
+	EventVisaApplied:            {},
+	EventVisaApproved:           {},
+	EventCoEReceived:            {},
+	EventLandedJapan:            {},
+	EventAddressRegistered:      {},
+	EventAddressChanged:         {},
+	EventEmployerChanged:        {},
+	EventVisaRenewalWindowOpens: {},
+	EventTaxResidencyTriggered:  {},
+}
+
+// IsKnownEventType reports whether s is a registered event type.
+func IsKnownEventType(s string) bool {
+	_, ok := allEventTypes[EventType(s)]
+	return ok
+}
+
+// KnownEventTypes returns the registered event types in arbitrary order.
+// Useful for /healthz-style debug endpoints and for error messages.
+func KnownEventTypes() []EventType {
+	out := make([]EventType, 0, len(allEventTypes))
+	for et := range allEventTypes {
+		out = append(out, et)
+	}
+	return out
+}
+
 // Severity classifies how strictly a task must be done.
 type Severity string
 

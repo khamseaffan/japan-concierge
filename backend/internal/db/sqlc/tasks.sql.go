@@ -56,8 +56,11 @@ type CreateComplianceTaskParams struct {
 
 // Inserts a generated task. Uses ON CONFLICT DO NOTHING because the schema
 // enforces idempotency via UNIQUE (user_id, rule_id, triggered_by_event_id).
-// If the task already exists, this returns no rows. The caller decides whether
-// that's a no-op or an error.
+//
+// CONTRACT: when a conflict occurs, this returns ZERO rows. With sqlc's :one,
+// that surfaces as pgx.ErrNoRows in the generated Go. Callers MUST treat
+// ErrNoRows as the idempotent no-op path, not an error. See ADR-0003 for the
+// reasoning behind schema-level idempotency.
 func (q *Queries) CreateComplianceTask(ctx context.Context, arg CreateComplianceTaskParams) (ComplianceTask, error) {
 	row := q.db.QueryRow(ctx, createComplianceTask,
 		arg.UserID,
@@ -220,6 +223,81 @@ ORDER BY
 
 func (q *Queries) ListPendingTasksForUser(ctx context.Context, userID int64) ([]ComplianceTask, error) {
 	rows, err := q.db.Query(ctx, listPendingTasksForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ComplianceTask{}
+	for rows.Next() {
+		var i ComplianceTask
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.VisaID,
+			&i.RuleID,
+			&i.TriggeredByEventID,
+			&i.TitleEn,
+			&i.TitleJa,
+			&i.DescriptionEn,
+			&i.DescriptionJa,
+			&i.Category,
+			&i.Severity,
+			&i.Status,
+			&i.DeadlineAt,
+			&i.CompletedAt,
+			&i.LegalSourceUrl,
+			&i.LegalSourceText,
+			&i.LocationHint,
+			&i.Metadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTasksFiltered = `-- name: ListTasksFiltered :many
+SELECT id, user_id, visa_id, rule_id, triggered_by_event_id,
+    title_en, title_ja, description_en, description_ja,
+    category, severity, status,
+    deadline_at, completed_at,
+    legal_source_url, legal_source_text, location_hint,
+    metadata, created_at, updated_at
+FROM compliance_tasks
+WHERE user_id = $1
+  AND ($2::text   IS NULL OR status   = $2)
+  AND ($3::bigint IS NULL OR visa_id = $3)
+  AND ($4::text IS NULL OR category = $4)
+ORDER BY
+    CASE WHEN deadline_at IS NULL THEN 1 ELSE 0 END,
+    deadline_at ASC,
+    created_at ASC
+`
+
+type ListTasksFilteredParams struct {
+	UserID   int64       `json:"user_id"`
+	Status   pgtype.Text `json:"status"`
+	VisaID   pgtype.Int8 `json:"visa_id"`
+	Category pgtype.Text `json:"category"`
+}
+
+// Filtered task listing for GET /api/v1/tasks. Each filter is optional via
+// sqlc.narg: pass NULL (Go: pgtype.Text/Int8 with Valid=false) to skip it.
+// Sort order is consistent with ListPendingTasksForUser: deadline ascending,
+// NULLs at the end, then created_at as tiebreaker.
+func (q *Queries) ListTasksFiltered(ctx context.Context, arg ListTasksFilteredParams) ([]ComplianceTask, error) {
+	rows, err := q.db.Query(ctx, listTasksFiltered,
+		arg.UserID,
+		arg.Status,
+		arg.VisaID,
+		arg.Category,
+	)
 	if err != nil {
 		return nil, err
 	}

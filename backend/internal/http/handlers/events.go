@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -20,9 +19,13 @@ import (
 )
 
 // EventsHandler holds dependencies for the life-event endpoints.
+//
+// No Logger field: per-request loggers come from the context via
+// middleware.LoggerFromContext, so every log line in a request automatically
+// carries the request_id correlation field. The base logger is configured in
+// main.go and threaded by RequestLogger middleware.
 type EventsHandler struct {
 	Tracker *service.TrackerService
-	Logger  *slog.Logger
 }
 
 // CreateLifeEventRequest is the JSON body for POST /api/v1/life-events.
@@ -73,6 +76,8 @@ type TaskDTO struct {
 
 // Create handles POST /api/v1/life-events.
 func (h *EventsHandler) Create(w http.ResponseWriter, r *http.Request) {
+	logger := httpmw.LoggerFromContext(r.Context())
+
 	userID, ok := httpmw.UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "no user context")
@@ -105,7 +110,7 @@ func (h *EventsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Payload:    req.Payload,
 	})
 	if err != nil {
-		h.Logger.Error("RecordLifeEvent failed", "user_id", userID, "event_type", req.EventType, "err", err)
+		logger.Error("RecordLifeEvent failed", "user_id", userID, "event_type", req.EventType, "err", err)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -118,7 +123,7 @@ func (h *EventsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		resp.Tasks = append(resp.Tasks, taskToDTO(t))
 	}
 
-	h.Logger.Info("life event recorded",
+	logger.Info("life event recorded",
 		"user_id", userID,
 		"event_id", result.Event.ID,
 		"event_type", req.EventType,
@@ -135,30 +140,13 @@ func validateCreateRequest(req CreateLifeEventRequest) error {
 	if req.EventType == "" {
 		return errors.New("event_type is required")
 	}
-	if !isKnownEventType(req.EventType) {
+	if !rules.IsKnownEventType(req.EventType) {
 		return fmt.Errorf("unknown event_type %q", req.EventType)
 	}
 	if req.OccurredAt == "" {
 		return errors.New("occurred_at is required (YYYY-MM-DD)")
 	}
 	return nil
-}
-
-func isKnownEventType(s string) bool {
-	switch rules.EventType(s) {
-	case rules.EventVisaApplicationStarted,
-		rules.EventVisaApplied,
-		rules.EventVisaApproved,
-		rules.EventCoEReceived,
-		rules.EventLandedJapan,
-		rules.EventAddressRegistered,
-		rules.EventAddressChanged,
-		rules.EventEmployerChanged,
-		rules.EventVisaRenewalWindowOpens,
-		rules.EventTaxResidencyTriggered:
-		return true
-	}
-	return false
 }
 
 func lifeEventToDTO(e sqlc.LifeEvent) TaskEventDTO {

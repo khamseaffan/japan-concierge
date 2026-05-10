@@ -17,13 +17,25 @@ import (
 	"github.com/khamseaffan/japan-concierge/backend/internal/service"
 )
 
+// Services is the bundle of service-layer dependencies the router wires up.
+// Defined as a struct so the constructor signature doesn't grow each time we
+// add a service.
+type Services struct {
+	Tracker *service.TrackerService
+	Visas   *service.VisaService
+	Tasks   *service.TaskService
+}
+
 // NewRouter builds the API router. The returned http.Handler can be passed to
 // http.ListenAndServe or wrapped further (e.g. for TLS in production).
-func NewRouter(cfg *config.Config, logger *slog.Logger, tracker *service.TrackerService) http.Handler {
+//
+// pinger is the database pinger used by /healthz; pass the *pgxpool.Pool.
+func NewRouter(cfg *config.Config, logger *slog.Logger, svcs Services, pinger handlers.HealthPinger) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
+	r.Use(middleware.RequestLogger(logger)) // attaches request-scoped slog with request_id
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Timeout(30_000_000_000)) // 30s — tighten when we know real p95s
 
@@ -33,15 +45,22 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, tracker *service.Tracker
 		r.Use(middleware.SingleUser(cfg.SingleUserID))
 	}
 
-	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
-	})
+	// /healthz pings the database so cloud readiness probes catch real outages,
+	// not just "the process is up". Lives outside /api/v1 by convention.
+	r.Get("/healthz", handlers.Healthz(pinger))
 
-	events := &handlers.EventsHandler{Tracker: tracker, Logger: logger}
+	events := &handlers.EventsHandler{Tracker: svcs.Tracker}
+	visas := &handlers.VisasHandler{Visas: svcs.Visas}
+	tasks := &handlers.TasksHandler{Tasks: svcs.Tasks}
 
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Post("/visas", visas.Create)
+		r.Get("/visas/active", visas.GetActive)
+		r.Get("/visa-types", visas.ListTypes)
+
 		r.Post("/life-events", events.Create)
+
+		r.Get("/tasks", tasks.List)
 	})
 
 	return r

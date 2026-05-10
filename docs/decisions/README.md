@@ -13,6 +13,7 @@ The goal is that a future contributor — or recruiter reviewing this repo — c
 | [ADR-0003](0003-schema-level-idempotency.md) | Idempotency enforced in Postgres, not application code | Accepted |
 | [ADR-0004](0004-rules-as-yaml-data.md) | Compliance rules expressed as YAML data, not Go branches | Accepted |
 | [ADR-0005](0005-pgx-and-sqlc.md) | pgx/v5 + sqlc over database/sql + ORM | Accepted |
+| [ADR-0006](0006-explicit-visa-creation.md) | Explicit `POST /visas` over implicit creation on first event | Accepted |
 
 ## Format
 
