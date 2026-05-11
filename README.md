@@ -11,7 +11,7 @@ Early development. Phase 1 (compliance tracker) in progress.
 - [x] Postgres schema (multi-tenant ready)
 - [x] Rule engine (pure Go, YAML-driven, visa-agnostic)
 - [x] Rules for J-FIND and Engineer/Specialist in Humanities/International Services
-- [x] HTTP API (Chi) — `POST /visas`, `GET /visas/active`, `POST /life-events`, `GET /tasks`, `GET /healthz`
+- [x] HTTP API (Chi) — `POST /visas`, `GET /visas/active`, `POST /life-events`, `GET /tasks`, `POST /tasks/{id}/done`, `GET /healthz`
 - [x] Integration tests (testcontainers)
 - [ ] Frontend pre-arrival mode (Next.js PWA)
 - [ ] Frontend post-landing tracker
@@ -101,7 +101,12 @@ curl -s localhost:8080/api/v1/tasks
 curl -s 'localhost:8080/api/v1/tasks?category=municipal'
 curl -s 'localhost:8080/api/v1/tasks?status=pending&visa_id=1'
 
-# 7. Health check pings Postgres (use this for cloud readiness probes)
+# 7. Mark a task done (replace 1 with the task id you want to complete).
+#    Returns 200 + the updated task with completed_at set; 409 if already done;
+#    404 if the task does not exist; 400 if the id is not a positive integer.
+curl -s -X POST localhost:8080/api/v1/tasks/1/done
+
+# 8. Health check pings Postgres (use this for cloud readiness probes)
 curl -s localhost:8080/healthz
 ```
 
@@ -123,9 +128,9 @@ Adding a new visa is a YAML file in `backend/internal/rules/data/` plus tests in
 
 ## License
 
-TODO: BSL-1.1 with 4-year change date to Apache 2.0. License file pending.
+[Business Source License 1.1](LICENSE), converting to Apache License 2.0 on 2030-05-10.
 
-In the meantime: this code is shared publicly for review and learning. Please do not redistribute or commercialize.
+You may use this code for non-production purposes (reading, learning, personal evaluation) and for personal or internal production use. You may NOT offer it to third parties on a hosted or embedded basis. See [ADR-0002](docs/decisions/0002-bsl-license.md) for the reasoning.
 
 ## Contributing
 

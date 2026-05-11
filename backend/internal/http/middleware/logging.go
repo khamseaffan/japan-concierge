@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -55,4 +56,38 @@ func RequestIDFromContext(ctx context.Context) string {
 		return v
 	}
 	return ""
+}
+
+// SlogRequestLogger emits one structured "request completed" log line per
+// request, capturing status, response size, and latency. Use INSTEAD of
+// chi/middleware.Logger so we get one logger (slog) rather than two.
+//
+// Place AFTER chi.RequestID and AFTER RequestLogger in the middleware chain
+// so request_id is available and the per-request slog is in context.
+func SlogRequestLogger(base *slog.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			next.ServeHTTP(ww, r)
+
+			level := slog.LevelInfo
+			status := ww.Status()
+			switch {
+			case status >= 500:
+				level = slog.LevelError
+			case status >= 400:
+				level = slog.LevelWarn
+			}
+
+			base.LogAttrs(r.Context(), level, "request completed",
+				slog.String("method", r.Method),
+				slog.String("path", r.URL.Path),
+				slog.Int("status", status),
+				slog.Int("bytes", ww.BytesWritten()),
+				slog.Duration("duration", time.Since(start)),
+				slog.String("request_id", middleware.GetReqID(r.Context())),
+			)
+		})
+	}
 }

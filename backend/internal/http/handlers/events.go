@@ -69,6 +69,7 @@ type TaskDTO struct {
 	Severity           string  `json:"severity"`
 	Status             string  `json:"status"`
 	DeadlineAt         *string `json:"deadline_at,omitempty"`
+	CompletedAt        *string `json:"completed_at,omitempty"`
 	LegalSourceURL     string  `json:"legal_source_url,omitempty"`
 	LegalSourceText    string  `json:"legal_source_text,omitempty"`
 	LocationHint       string  `json:"location_hint,omitempty"`
@@ -193,6 +194,10 @@ func taskToDTO(t sqlc.ComplianceTask) TaskDTO {
 	if t.DeadlineAt.Valid {
 		s := t.DeadlineAt.Time.Format("2006-01-02")
 		dto.DeadlineAt = &s
+	}
+	if t.CompletedAt.Valid {
+		s := t.CompletedAt.Time.UTC().Format(time.RFC3339)
+		dto.CompletedAt = &s
 	}
 	if t.LegalSourceUrl.Valid {
 		dto.LegalSourceURL = t.LegalSourceUrl.String

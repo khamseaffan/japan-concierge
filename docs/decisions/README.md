@@ -14,6 +14,7 @@ The goal is that a future contributor — or recruiter reviewing this repo — c
 | [ADR-0004](0004-rules-as-yaml-data.md) | Compliance rules expressed as YAML data, not Go branches | Accepted |
 | [ADR-0005](0005-pgx-and-sqlc.md) | pgx/v5 + sqlc over database/sql + ORM | Accepted |
 | [ADR-0006](0006-explicit-visa-creation.md) | Explicit `POST /visas` over implicit creation on first event | Accepted |
+| [ADR-0007](0007-task-completion-not-an-event.md) | Task completion does not emit a life event in v1 | Accepted |
 
 ## Format
 

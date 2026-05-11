@@ -35,7 +35,8 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, svcs Services, pinger ha
 
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
-	r.Use(middleware.RequestLogger(logger)) // attaches request-scoped slog with request_id
+	r.Use(middleware.RequestLogger(logger))     // attaches request-scoped slog with request_id
+	r.Use(middleware.SlogRequestLogger(logger)) // emits one "request completed" line per request
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Timeout(30_000_000_000)) // 30s — tighten when we know real p95s
 
@@ -61,6 +62,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, svcs Services, pinger ha
 		r.Post("/life-events", events.Create)
 
 		r.Get("/tasks", tasks.List)
+		r.Post("/tasks/{id}/done", tasks.MarkDone)
 	})
 
 	return r

@@ -5,6 +5,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -205,6 +206,130 @@ func TestRecordLifeEvent_UnknownVisaCodeRollsBack(t *testing.T) {
 	}
 	if count != 0 {
 		t.Errorf("life_events count = %d, want 0 (transaction should have rolled back)", count)
+	}
+}
+
+// TestVisaService_UnknownVisaTypeCode_CommitmentDevice exists specifically to
+// freeze the substring the visas.go handler matches on for its 400 response
+// path. The handler currently does:
+//
+//	if strings.Contains(msg, "unknown visa_type_code") { return 400 }
+//
+// That substring matching is fragile. The day someone refactors VisaService
+// to return a typed sentinel error and changes the message, the handler
+// silently falls through to 500. This test makes that refactor break loudly:
+// when it fires, you MUST update the handler to use the typed error and
+// remove the substring branch. See visas.go for the corresponding TODO.
+func TestVisaService_UnknownVisaTypeCode_CommitmentDevice(t *testing.T) {
+	t.Parallel()
+	fix := testutil.StartPostgres(t)
+	ctx := context.Background()
+
+	q := sqlc.New(fix.Pool)
+	svc := service.NewVisaService(q)
+
+	_, err := svc.CreateVisa(ctx, service.CreateVisaInput{
+		UserID:       1,
+		VisaTypeCode: "made_up_visa_does_not_exist",
+	})
+	if err == nil {
+		t.Fatal("expected error for unknown visa_type_code, got nil")
+	}
+	const requiredSubstring = "unknown visa_type_code"
+	if !strings.Contains(err.Error(), requiredSubstring) {
+		t.Fatalf(`error message must contain %q for handler substring matching to work.
+got: %q
+ACTION: if you are intentionally changing this message, also refactor
+handlers/visas.go to use a typed sentinel error (errors.Is) instead of
+strings.Contains, and delete this commitment-device test.`,
+			requiredSubstring, err.Error())
+	}
+}
+
+func TestTaskService_MarkDone_HappyPath(t *testing.T) {
+	t.Parallel()
+	fix := testutil.StartPostgres(t)
+	ctx := context.Background()
+
+	q := sqlc.New(fix.Pool)
+	seedJFINDVisa(t, ctx, q)
+
+	tracker := service.NewTrackerService(fix.Pool, withRulesEngine(t))
+	tasks := service.NewTaskService(q)
+
+	// Generate a real task by recording a life event.
+	occurredAt, _ := time.Parse("2006-01-02", "2026-08-01")
+	res, err := tracker.RecordLifeEvent(ctx, service.RecordLifeEventInput{
+		UserID:     1,
+		EventType:  rules.EventLandedJapan,
+		OccurredAt: occurredAt,
+	})
+	if err != nil {
+		t.Fatalf("seed event: %v", err)
+	}
+	if len(res.Tasks) == 0 {
+		t.Fatal("seed event produced no tasks")
+	}
+	target := res.Tasks[0]
+	if target.Status != "pending" {
+		t.Fatalf("seeded task status = %q, want pending", target.Status)
+	}
+
+	updated, err := tasks.MarkDone(ctx, 1, target.ID)
+	if err != nil {
+		t.Fatalf("MarkDone: %v", err)
+	}
+	if updated.Status != "done" {
+		t.Errorf("status after MarkDone = %q, want done", updated.Status)
+	}
+	if !updated.CompletedAt.Valid {
+		t.Error("CompletedAt should be set after MarkDone")
+	}
+}
+
+func TestTaskService_MarkDone_AlreadyDone(t *testing.T) {
+	t.Parallel()
+	fix := testutil.StartPostgres(t)
+	ctx := context.Background()
+
+	q := sqlc.New(fix.Pool)
+	seedJFINDVisa(t, ctx, q)
+
+	tracker := service.NewTrackerService(fix.Pool, withRulesEngine(t))
+	tasks := service.NewTaskService(q)
+
+	res, err := tracker.RecordLifeEvent(ctx, service.RecordLifeEventInput{
+		UserID:     1,
+		EventType:  rules.EventLandedJapan,
+		OccurredAt: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("seed event: %v", err)
+	}
+	target := res.Tasks[0]
+
+	// First call succeeds.
+	if _, err := tasks.MarkDone(ctx, 1, target.ID); err != nil {
+		t.Fatalf("first MarkDone: %v", err)
+	}
+	// Second call returns ErrAlreadyDone (mapped to 409 by the handler).
+	_, err = tasks.MarkDone(ctx, 1, target.ID)
+	if !errors.Is(err, service.ErrAlreadyDone) {
+		t.Errorf("second MarkDone error = %v, want ErrAlreadyDone", err)
+	}
+}
+
+func TestTaskService_MarkDone_NotFound(t *testing.T) {
+	t.Parallel()
+	fix := testutil.StartPostgres(t)
+	ctx := context.Background()
+
+	q := sqlc.New(fix.Pool)
+	tasks := service.NewTaskService(q)
+
+	_, err := tasks.MarkDone(ctx, 1, 999_999)
+	if !errors.Is(err, service.ErrNotFound) {
+		t.Errorf("MarkDone(missing) error = %v, want ErrNotFound", err)
 	}
 }
 

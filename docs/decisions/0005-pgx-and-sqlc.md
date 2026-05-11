@@ -23,3 +23,11 @@ A narrow `Querier` interface is defined in `internal/service/`, listing only the
 - **Easier:** `pgx/v5` uses `pgxpool.Pool` for connection pooling and `pgtype.Text` / `pgtype.Date` for nullable fields, which is more honest than `database/sql`'s `sql.NullString` ergonomics.
 - **Harder:** every query is hand-written. There is no "find me by example" or "load with all relations" magic. For this project that's a feature — every query has a known cost.
 - **Tradeoff:** `sqlc` requires a code-gen step in the dev loop (`make sqlc`). The Makefile target makes it one command, and CI can verify the generated code is up to date.
+
+## Validation in practice (added 2026-05-10)
+
+The `var _ TrackerQuerier = (*sqlc.Queries)(nil)` compile-time assertion pattern paid off concretely when the `ListVisaTypes` query was added. sqlc regenerated `*Queries` with the new method, but the narrow `VisaQuerier` interface in `internal/service/visa.go` had not yet listed it. The build broke at the assertion line in the same compile cycle as the regeneration, before any test ran.
+
+This is the failure mode the assertion exists to catch: a narrow service interface drifting silently from what sqlc generates, then surfacing only at runtime when an integration test happens to hit that code path. With the assertion, drift is a build error inside the same edit.
+
+Repeat this pattern for every service (`TrackerQuerier`, `VisaQuerier`, `TaskQuerier` all do). The assertion costs one line; the alternative is a class of bug that bypasses fast unit tests entirely.
