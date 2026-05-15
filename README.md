@@ -8,10 +8,18 @@ Built as a personal tool for a J-FIND visa applicant moving from NYC to Tokyo. D
 
 ## How it works
 
+Two modes, same data:
+
+**Manual mode** (available now) — a checklist you work through yourself:
+
 1. **Pick your visa type** — J-FIND or Engineer (more coming)
 2. **Log life events** — "started application", "landed in Japan", "changed employer"
 3. **Get tasks with real deadlines** — each one cites the specific law, tells you where to go, and counts down
 4. **Check them off** — on your phone, on the train, in Tokyo
+
+**Conversational mode** (planned) — a chat interface where you describe what happened in natural language ("I went to the Shinjuku ward office and registered my address today") and the system figures out which tasks to mark done, which events to log, and what to ask you next. No forms, no dropdowns — just tell it what you did.
+
+Both modes read and write the same backend state. The conversational flow is where this becomes more than a checklist app.
 
 The rules engine is YAML-driven: adding a new visa type means adding a YAML file, not changing code.
 
