@@ -59,16 +59,47 @@ export interface LifeEventResponse {
 
 export type EventType =
   | "visa_application_started"
+  | "visa_applied"
+  | "visa_approved"
+  | "coe_received"
   | "landed_japan"
+  | "address_registered"
+  | "address_changed"
   | "employer_changed"
+  | "visa_renewal_window_opens"
   | "tax_residency_triggered";
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   visa_application_started: "Started visa application",
+  visa_applied: "Applied for visa",
+  visa_approved: "Visa approved",
+  coe_received: "Received CoE",
   landed_japan: "Landed in Japan",
+  address_registered: "Registered address",
+  address_changed: "Changed address",
   employer_changed: "Changed employer",
+  visa_renewal_window_opens: "Visa renewal window opened",
   tax_residency_triggered: "Tax residency triggered (183+ days)",
 };
+
+export interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ConversationToolCall {
+  name: string;
+  success: boolean;
+  message: string;
+  data?: unknown;
+}
+
+export interface ConversationResponse {
+  message: string;
+  tool_calls?: ConversationToolCall[];
+  response_id?: string;
+  model?: string;
+}
 
 class ApiError extends Error {
   constructor(
@@ -133,5 +164,11 @@ export const api = {
     request<LifeEventResponse>("/api/v1/life-events", {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+
+  sendConversationMessage: (messages: ConversationMessage[]) =>
+    request<ConversationResponse>("/api/v1/conversation/messages", {
+      method: "POST",
+      body: JSON.stringify({ messages }),
     }),
 };

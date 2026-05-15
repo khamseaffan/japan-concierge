@@ -64,10 +64,14 @@ func run(logger *slog.Logger) error {
 	logger.Info("rules engine loaded", "visa_codes", engine.VisaCodes())
 
 	q := sqlc.New(pool)
+	tasks := service.NewTaskService(q)
+	tracker := service.NewTrackerService(pool, engine)
+	ai := service.NewAIResponsesClient(cfg.AIAPIKey, cfg.AIBaseURL)
 	svcs := httpapi.Services{
-		Tracker: service.NewTrackerService(pool, engine),
-		Visas:   service.NewVisaService(q),
-		Tasks:   service.NewTaskService(q),
+		Tracker:      tracker,
+		Visas:        service.NewVisaService(q),
+		Tasks:        tasks,
+		Conversation: service.NewConversationService(ai, cfg.AIModel, tasks, tracker),
 	}
 
 	router := httpapi.NewRouter(cfg, logger, svcs, pool)

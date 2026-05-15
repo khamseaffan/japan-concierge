@@ -19,6 +19,16 @@ type Config struct {
 	// HTTPAddr is the listen address for the HTTP server (e.g. ":8080").
 	HTTPAddr string
 
+	// AIAPIKey enables the conversational assistant. If empty, the conversation
+	// endpoint returns 503 instead of attempting an AI call.
+	AIAPIKey string
+
+	// AIModel is the model used by the conversational assistant.
+	AIModel string
+
+	// AIBaseURL is the Responses-compatible provider base URL.
+	AIBaseURL string
+
 	// SingleUserMode hardcodes user_id=1 for every request, skipping auth.
 	// Flip to false once auth (Clerk) is wired up.
 	SingleUserMode bool
@@ -33,6 +43,9 @@ func Load() (*Config, error) {
 	c := &Config{
 		DatabaseURL:    getenv("DATABASE_URL", "postgresql://japan_concierge:dev_password@localhost:5432/japan_concierge?sslmode=disable"),
 		HTTPAddr:       getenv("HTTP_ADDR", ":8080"),
+		AIAPIKey:       os.Getenv("AI_API_KEY"),
+		AIModel:        os.Getenv("AI_MODEL"),
+		AIBaseURL:      os.Getenv("AI_BASE_URL"),
 		SingleUserMode: getenvBool("SINGLE_USER_MODE", true),
 		SingleUserID:   1,
 	}
