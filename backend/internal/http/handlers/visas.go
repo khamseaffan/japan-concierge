@@ -201,4 +201,3 @@ func visaToDTO(v sqlc.Visa) VisaDTO {
 	}
 	return dto
 }
-

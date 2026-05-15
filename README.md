@@ -13,6 +13,7 @@ Early development. Phase 1 (compliance tracker) in progress.
 - [x] Rules for J-FIND and Engineer/Specialist in Humanities/International Services
 - [x] HTTP API (Chi) — `POST /visas`, `GET /visas/active`, `POST /life-events`, `GET /tasks`, `POST /tasks/{id}/done`, `GET /healthz`
 - [x] Integration tests (testcontainers)
+- [x] CI/CD pipeline (GitHub Actions + GHCR image publishing)
 - [ ] Frontend pre-arrival mode (Next.js PWA)
 - [ ] Frontend post-landing tracker
 - [ ] Document upload + storage
@@ -111,6 +112,10 @@ curl -s localhost:8080/healthz
 ```
 
 Every server log line includes `request_id`, `method`, `path`, and the `source` file/function/line of the log call, making it trivial to follow a single request across handlers and services.
+
+## CI/CD
+
+GitHub Actions runs formatting checks, `go mod tidy` verification, `go vet`, unit tests, integration tests, and a server build on pull requests and pushes to `main`. Pushes to `main`, version tags like `v1.2.3`, and manual runs also build and publish the backend container image to GitHub Container Registry at `ghcr.io/khamseaffan/japan-concierge/backend`.
 
 ## Visa coverage
 
