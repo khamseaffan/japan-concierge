@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CheckSquare, CalendarPlus, Plane } from "lucide-react";
+import { CheckSquare, CalendarPlus, MessageCircle, Plane } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
-  { href: "/events", label: "Log Event", icon: CalendarPlus },
+  { href: "/chat", label: "Chat", icon: MessageCircle },
+  { href: "/events", label: "Event", icon: CalendarPlus },
   { href: "/", label: "Visa", icon: Plane },
 ] as const;
 

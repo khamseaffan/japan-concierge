@@ -17,7 +17,7 @@ Two modes, same data:
 3. **Get tasks with real deadlines** — each one cites the specific law, tells you where to go, and counts down
 4. **Check them off** — on your phone, on the train, in Tokyo
 
-**Conversational mode** (planned) — a chat interface where you describe what happened in natural language ("I went to the Shinjuku ward office and registered my address today") and the system figures out which tasks to mark done, which events to log, and what to ask you next. No forms, no dropdowns — just tell it what you did.
+**Conversational mode** (available with `AI_API_KEY`, `AI_MODEL`, and `AI_BASE_URL`) — a chat interface where you describe what happened in natural language ("I went to the Shinjuku ward office and registered my address today") and the system can call backend tools to list tasks, mark tasks done, log life events, and ask what it needs next. No forms, no dropdowns — just tell it what you did.
 
 Both modes read and write the same backend state. The conversational flow is where this becomes more than a checklist app.
 
@@ -32,6 +32,8 @@ make dev
 ```
 
 That's it. Starts Postgres, runs migrations, launches the Go API on `:8080` and Next.js on `:3000`. Ctrl-C stops everything.
+
+To enable `/chat`, set `AI_API_KEY`, `AI_MODEL`, and `AI_BASE_URL` in `.env` for a Responses-compatible AI provider.
 
 See `make help` for all available targets.
 
@@ -69,8 +71,9 @@ curl -s -X POST localhost:8080/api/v1/tasks/1/done
 
 ```
 frontend/                  Next.js 16 PWA — mobile-first, talks to Go API
-                           via proxy rewrite. Three screens: visa picker,
-                           life-event form, task list with mark-done.
+                           via proxy rewrite. Screens: visa picker,
+                           life-event form, task list with mark-done,
+                           and conversational chat.
 
 backend/internal/rules     Pure rule engine. No DB, no HTTP, no clock.
                            Rules live as YAML data, not code branches.
@@ -82,6 +85,8 @@ backend/internal/db        Postgres schema (migrations), hand-written
 backend/internal/service   Orchestrates engine + persistence inside
                            transactions. Each service exposes a narrow
                            Querier interface (interface segregation).
+                           Conversation service wraps Responses-style
+                           tool-calling around task and event actions.
 
 backend/internal/http      Chi handlers + middleware. Per-request slog
                            with request_id threaded through context.
@@ -101,6 +106,7 @@ See [`docs/decisions/`](docs/decisions/) for ADRs explaining every architectural
 - [x] Integration tests (testcontainers)
 - [x] CI/CD pipeline (GitHub Actions + GHCR image publishing)
 - [x] Frontend pre-arrival mode (Next.js 16 PWA)
+- [x] Conversational AI tool calling for tasks and life events
 - [x] Dev tooling (`make dev`, overmind, Procfile)
 - [ ] Frontend post-landing tracker
 - [ ] Document upload + storage

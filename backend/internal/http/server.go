@@ -21,9 +21,10 @@ import (
 // Defined as a struct so the constructor signature doesn't grow each time we
 // add a service.
 type Services struct {
-	Tracker *service.TrackerService
-	Visas   *service.VisaService
-	Tasks   *service.TaskService
+	Tracker      *service.TrackerService
+	Visas        *service.VisaService
+	Tasks        *service.TaskService
+	Conversation *service.ConversationService
 }
 
 // NewRouter builds the API router. The returned http.Handler can be passed to
@@ -53,6 +54,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, svcs Services, pinger ha
 	events := &handlers.EventsHandler{Tracker: svcs.Tracker}
 	visas := &handlers.VisasHandler{Visas: svcs.Visas}
 	tasks := &handlers.TasksHandler{Tasks: svcs.Tasks}
+	conversation := &handlers.ConversationHandler{Conversation: svcs.Conversation}
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/visas", visas.Create)
@@ -63,6 +65,8 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, svcs Services, pinger ha
 
 		r.Get("/tasks", tasks.List)
 		r.Post("/tasks/{id}/done", tasks.MarkDone)
+
+		r.Post("/conversation/messages", conversation.Reply)
 	})
 
 	return r
