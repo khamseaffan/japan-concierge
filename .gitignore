@@ -32,6 +32,9 @@ go.work.sum
 postgres_data/
 minio_data/
 
+# overmind
+.overmind.sock
+
 # Frontend
 frontend/node_modules/
 frontend/.next/
