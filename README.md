@@ -1,31 +1,77 @@
-# japan-concierge
+# Japan Concierge
 
-A compliance state-machine for the Japan immigration journey. Tracks every obligation, deadline, and document from pre-arrival through your first year — visa-aware, deadline-aware, and grounded in real legal sources.
+Moving to Japan as a foreigner means navigating a maze of legal obligations with real deadlines — register your address within 14 days, enroll in health insurance immediately, notify immigration when you change jobs. Miss one and it can affect your visa renewal, tax status, or permanent residency application. There's no single source that tells you what to do, in what order, for your specific visa type.
 
-Built initially as a personal tool for a J-FIND visa applicant moving from NYC to Tokyo, designed from day one to be sharable with other foreigners on different visa paths.
+Japan Concierge solves this. You tell it your visa type and what's happening in your life ("I landed in Japan", "I changed employers"), and it generates a personalized compliance checklist with deadlines, legal citations, and location hints — grounded in actual immigration law, not blog posts.
 
-## Status
+Built as a personal tool for a J-FIND visa applicant moving from NYC to Tokyo. Designed from day one to work for other visa types and other people.
 
-Early development. Phase 1 (compliance tracker) in progress.
+## How it works
 
-- [x] Postgres schema (multi-tenant ready)
-- [x] Rule engine (pure Go, YAML-driven, visa-agnostic)
-- [x] Rules for J-FIND and Engineer/Specialist in Humanities/International Services
-- [x] HTTP API (Chi) — `POST /visas`, `GET /visas/active`, `POST /life-events`, `GET /tasks`, `POST /tasks/{id}/done`, `GET /healthz`
-- [x] Integration tests (testcontainers)
-- [x] CI/CD pipeline (GitHub Actions + GHCR image publishing)
-- [ ] Frontend pre-arrival mode (Next.js PWA)
-- [ ] Frontend post-landing tracker
-- [ ] Document upload + storage
-- [ ] OCR pipeline (Google Cloud Vision)
-- [ ] Document classification + structured extraction (Claude)
-- [ ] Auto-update tracker from parsed documents
-- [ ] Reminders + notifications
-- [ ] Hardening for sharing (auth, ToS, rate limiting)
+Two modes, same data:
+
+**Manual mode** (available now) — a checklist you work through yourself:
+
+1. **Pick your visa type** — J-FIND or Engineer (more coming)
+2. **Log life events** — "started application", "landed in Japan", "changed employer"
+3. **Get tasks with real deadlines** — each one cites the specific law, tells you where to go, and counts down
+4. **Check them off** — on your phone, on the train, in Tokyo
+
+**Conversational mode** (planned) — a chat interface where you describe what happened in natural language ("I went to the Shinjuku ward office and registered my address today") and the system figures out which tasks to mark done, which events to log, and what to ask you next. No forms, no dropdowns — just tell it what you did.
+
+Both modes read and write the same backend state. The conversational flow is where this becomes more than a checklist app.
+
+The rules engine is YAML-driven: adding a new visa type means adding a YAML file, not changing code.
+
+## Quick start
+
+Requirements: Docker, Go 1.25+, Node.js 24+, [overmind](https://github.com/DarthSim/overmind).
+
+```bash
+make dev
+```
+
+That's it. Starts Postgres, runs migrations, launches the Go API on `:8080` and Next.js on `:3000`. Ctrl-C stops everything.
+
+See `make help` for all available targets.
+
+## Try it: full session in curl
+
+After `make dev`, walk through the pre-arrival flow:
+
+```bash
+# 1. What visa types are available?
+curl -s localhost:8080/api/v1/visa-types
+
+# 2. Create a J-FIND visa
+curl -s -X POST localhost:8080/api/v1/visas \
+  -H 'Content-Type: application/json' \
+  -d '{"visa_type_code":"jfind","notes":"NYC, gathering documents"}'
+
+# 3. Log "I started my application" -> 4 pre-arrival tasks generated
+curl -s -X POST localhost:8080/api/v1/life-events \
+  -H 'Content-Type: application/json' \
+  -d '{"event_type":"visa_application_started","occurred_at":"2026-05-10"}'
+
+# 4. Log "I landed in Japan" -> 4 post-landing tasks with 14-day deadlines
+curl -s -X POST localhost:8080/api/v1/life-events \
+  -H 'Content-Type: application/json' \
+  -d '{"event_type":"landed_japan","occurred_at":"2026-08-01"}'
+
+# 5. See all your tasks
+curl -s localhost:8080/api/v1/tasks
+
+# 6. Mark one done
+curl -s -X POST localhost:8080/api/v1/tasks/1/done
+```
 
 ## Architecture
 
 ```
+frontend/                  Next.js 16 PWA — mobile-first, talks to Go API
+                           via proxy rewrite. Three screens: visa picker,
+                           life-event form, task list with mark-done.
+
 backend/internal/rules     Pure rule engine. No DB, no HTTP, no clock.
                            Rules live as YAML data, not code branches.
                            Adding a visa = adding a YAML file + tests.
@@ -37,81 +83,32 @@ backend/internal/service   Orchestrates engine + persistence inside
                            transactions. Each service exposes a narrow
                            Querier interface (interface segregation).
 
-backend/internal/http      Chi handlers + middleware. The dirty I/O
-                           boundary. Per-request slog with request_id
-                           threaded through context.
+backend/internal/http      Chi handlers + middleware. Per-request slog
+                           with request_id threaded through context.
 
-backend/internal/testutil  Testcontainers + goose runner for integration
-                           tests (build-tagged `integration`).
+Procfile.dev               overmind process declarations (api + next).
+Makefile                   Project command registry (make help).
 ```
 
-The rules engine has zero dependencies on the database or HTTP. It is a pure function: `(rule sets, input event) → generated tasks`. This is the SOLID core — open for extension (new visas), closed for modification (one engine).
+See [`docs/decisions/`](docs/decisions/) for ADRs explaining every architectural choice.
 
-See [`docs/decisions/`](docs/decisions/) for the architecture decisions and the reasoning behind each choice.
+## Status
 
-## Quick start
-
-Requirements: Docker, Go 1.23+, [`goose`](https://github.com/pressly/goose).
-
-```bash
-# Start Postgres + MinIO
-make db-up
-
-# Apply schema
-make migrate
-
-# Fast tests (rule engine only)
-make test-rules
-
-# Integration tests (boots throwaway Postgres containers, ~10s)
-make test-integration
-
-# Build and run the server
-make build
-make run
-```
-
-## Try it: full session in curl
-
-After `make db-up`, `make migrate`, and `make run`, walk through the pre-arrival flow:
-
-```bash
-# 1. Catalog of supported visa types (UI populates a picker from this)
-curl -s localhost:8080/api/v1/visa-types
-
-# 2. No visa yet -> 404 (frontend uses this to redirect to onboarding)
-curl -i localhost:8080/api/v1/visas/active
-
-# 3. Create a J-FIND planning visa
-curl -s -X POST localhost:8080/api/v1/visas \
-  -H 'Content-Type: application/json' \
-  -d '{"visa_type_code":"jfind","notes":"NYC, gathering documents"}'
-
-# 4. Log "I started my application today" -> 4 J-FIND pre-arrival tasks come back
-curl -s -X POST localhost:8080/api/v1/life-events \
-  -H 'Content-Type: application/json' \
-  -d '{"event_type":"visa_application_started","occurred_at":"2026-05-10"}'
-
-# 5. Log "I landed" -> 4 post-landing tasks with 14-day and 365-day deadlines
-curl -s -X POST localhost:8080/api/v1/life-events \
-  -H 'Content-Type: application/json' \
-  -d '{"event_type":"landed_japan","occurred_at":"2026-08-01"}'
-
-# 6. List every task, filter by category or status
-curl -s localhost:8080/api/v1/tasks
-curl -s 'localhost:8080/api/v1/tasks?category=municipal'
-curl -s 'localhost:8080/api/v1/tasks?status=pending&visa_id=1'
-
-# 7. Mark a task done (replace 1 with the task id you want to complete).
-#    Returns 200 + the updated task with completed_at set; 409 if already done;
-#    404 if the task does not exist; 400 if the id is not a positive integer.
-curl -s -X POST localhost:8080/api/v1/tasks/1/done
-
-# 8. Health check pings Postgres (use this for cloud readiness probes)
-curl -s localhost:8080/healthz
-```
-
-Every server log line includes `request_id`, `method`, `path`, and the `source` file/function/line of the log call, making it trivial to follow a single request across handlers and services.
+- [x] Postgres schema (multi-tenant ready)
+- [x] Rule engine (pure Go, YAML-driven, visa-agnostic)
+- [x] Rules for J-FIND and Engineer/Specialist in Humanities
+- [x] HTTP API — visas, life-events, tasks, health check
+- [x] Integration tests (testcontainers)
+- [x] CI/CD pipeline (GitHub Actions + GHCR image publishing)
+- [x] Frontend pre-arrival mode (Next.js 16 PWA)
+- [x] Dev tooling (`make dev`, overmind, Procfile)
+- [ ] Frontend post-landing tracker
+- [ ] Document upload + storage
+- [ ] OCR pipeline (Google Cloud Vision)
+- [ ] Document classification + extraction (Claude)
+- [ ] Auto-update tracker from parsed documents
+- [ ] Reminders + notifications
+- [ ] Hardening for sharing (auth, rate limiting, privacy)
 
 ## CI/CD
 
@@ -119,23 +116,21 @@ GitHub Actions runs formatting checks, `go mod tidy` verification, `go vet`, uni
 
 ## Visa coverage
 
-v1 ships with rules for two visa types:
+| Code       | Name                                                            | Status  |
+|------------|-----------------------------------------------------------------|---------|
+| `jfind`    | J-FIND (Designated Activities — Future Creation Activities)     | v1      |
+| `engineer` | Engineer/Specialist in Humanities/International Services        | v1      |
+| `hsp`      | Highly Skilled Professional                                     | planned |
+| `student`  | Student                                                         | planned |
+| `spouse`   | Spouse of Japanese National                                     | planned |
 
-| Code       | Display name                                                    | Status   |
-|------------|-----------------------------------------------------------------|----------|
-| `jfind`    | J-FIND (Designated Activities — Future Creation Activities)     | v1       |
-| `engineer` | Engineer/Specialist in Humanities/International Services        | v1       |
-| `hsp`      | Highly Skilled Professional                                     | planned  |
-| `student`  | Student                                                         | planned  |
-| `spouse`   | Spouse of Japanese National                                     | planned  |
-
-Adding a new visa is a YAML file in `backend/internal/rules/data/` plus tests in `backend/internal/rules/engine_test.go`. No engine code changes.
+Adding a new visa is a YAML file in `backend/internal/rules/data/` plus tests. No engine code changes.
 
 ## License
 
 [Business Source License 1.1](LICENSE), converting to Apache License 2.0 on 2030-05-10.
 
-You may use this code for non-production purposes (reading, learning, personal evaluation) and for personal or internal production use. You may NOT offer it to third parties on a hosted or embedded basis. See [ADR-0002](docs/decisions/0002-bsl-license.md) for the reasoning.
+You may use this code for non-production purposes and for personal or internal production use. You may NOT offer it to third parties on a hosted or embedded basis. See [ADR-0002](docs/decisions/0002-bsl-license.md) for the reasoning.
 
 ## Contributing
 
