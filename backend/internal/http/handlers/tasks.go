@@ -95,10 +95,11 @@ func (h *TasksHandler) List(w http.ResponseWriter, r *http.Request) {
 // MarkDone handles POST /api/v1/tasks/{id}/done.
 //
 // Returns:
-//   200 OK with the updated task on success
-//   400 if {id} is not a positive integer
-//   404 if the task does not exist or is owned by another user
-//   409 if the task is already in "done" state
+//
+//	200 OK with the updated task on success
+//	400 if {id} is not a positive integer
+//	404 if the task does not exist or is owned by another user
+//	409 if the task is already in "done" state
 func (h *TasksHandler) MarkDone(w http.ResponseWriter, r *http.Request) {
 	logger := httpmw.LoggerFromContext(r.Context())
 
