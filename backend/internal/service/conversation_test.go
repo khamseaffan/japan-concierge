@@ -448,10 +448,10 @@ func TestCompactMessages(t *testing.T) {
 	}
 
 	cases := []struct {
-		name     string
-		messages []ConversationMessage
-		limit    int
-		wantLen  int
+		name      string
+		messages  []ConversationMessage
+		limit     int
+		wantLen   int
 		wantFirst string
 	}{
 		{"under limit", []ConversationMessage{{Role: "user", Content: "a"}}, 16, 1, "a"},
